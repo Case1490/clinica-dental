@@ -41,9 +41,23 @@ export default function Booking() {
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState(null)
   const [errors, setErrors] = useState(initialErrors)
+  const [horasOcupadas, setHorasOcupadas] = useState([])
+
+  const fetchHorasOcupadas = async (fecha) => {
+    const { data } = await supabase
+      .from('reservas')
+      .select('hora')
+      .eq('fecha', fecha)
+      .in('estado', ['Pendiente', 'Confirmada'])
+
+    setHorasOcupadas(data?.map(r => r.hora) || [])
+  }
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value })
+    const { name, value } = e.target
+    setForm({ ...form, [name]: value, ...(name === 'fecha' ? { hora: '' } : {}) })
+
+    if (name === 'fecha') fetchHorasOcupadas(value)
   }
 
   const validate = () => {
@@ -147,160 +161,164 @@ export default function Booking() {
         {/* Formulario */}
         {!success && (
           <FadeIn delay={0.15}>
-<form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} className="space-y-5">
 
-            <div className="grid md:grid-cols-2 gap-5">
-              <div className="space-y-1.5">
-                <label className="text-sm text-slate-600 font-medium">Nombre completo</label>
-                <input
-                  type="text"
-                  name="nombre"
+              <div className="grid md:grid-cols-2 gap-5">
+                <div className="space-y-1.5">
+                  <label className="text-sm text-slate-600 font-medium">Nombre completo</label>
+                  <input
+                    type="text"
+                    name="nombre"
 
-                  value={form.nombre}
-                  onChange={handleChange}
-                  placeholder="Juan Pérez"
-                  className={`w-full px-4 py-3 rounded-xl border text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-2 transition
+                    value={form.nombre}
+                    onChange={handleChange}
+                    placeholder="Juan Pérez"
+                    className={`w-full px-4 py-3 rounded-xl border text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-2 transition
       ${errors.nombre
-                      ? 'border-red-300 focus:border-red-400 focus:ring-red-100'
-                      : 'border-slate-200 focus:border-blue-400 focus:ring-blue-100'
-                    }`}
-                />
-                {errors.nombre && (
-                  <p className="text-red-400 text-xs">{errors.nombre}</p>
-                )}
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-sm text-slate-600 font-medium">Correo electrónico</label>
-                <input
-                  type="email"
-                  name="email"
+                        ? 'border-red-300 focus:border-red-400 focus:ring-red-100'
+                        : 'border-slate-200 focus:border-blue-400 focus:ring-blue-100'
+                      }`}
+                  />
+                  {errors.nombre && (
+                    <p className="text-red-400 text-xs">{errors.nombre}</p>
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm text-slate-600 font-medium">Correo electrónico</label>
+                  <input
+                    type="email"
+                    name="email"
 
-                  value={form.email}
-                  onChange={handleChange}
-                  placeholder="juan@email.com"
-                  className={`w-full px-4 py-3 rounded-xl border text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-2 transition
+                    value={form.email}
+                    onChange={handleChange}
+                    placeholder="juan@email.com"
+                    className={`w-full px-4 py-3 rounded-xl border text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-2 transition
       ${errors.email
-                      ? 'border-red-300 focus:border-red-400 focus:ring-red-100'
-                      : 'border-slate-200 focus:border-blue-400 focus:ring-blue-100'
-                    }`}
-                />
-                {errors.email && (
-                  <p className="text-red-400 text-xs">{errors.email}</p>
-                )}
+                        ? 'border-red-300 focus:border-red-400 focus:ring-red-100'
+                        : 'border-slate-200 focus:border-blue-400 focus:ring-blue-100'
+                      }`}
+                  />
+                  {errors.email && (
+                    <p className="text-red-400 text-xs">{errors.email}</p>
+                  )}
+                </div>
               </div>
-            </div>
 
-            <div className="grid md:grid-cols-2 gap-5">
-              <div className="space-y-1.5">
-                <label className="text-sm text-slate-600 font-medium">Teléfono</label>
-                <input
-                  type="tel"
-                  name="telefono"
+              <div className="grid md:grid-cols-2 gap-5">
+                <div className="space-y-1.5">
+                  <label className="text-sm text-slate-600 font-medium">Teléfono</label>
+                  <input
+                    type="tel"
+                    name="telefono"
 
-                  value={form.telefono}
-                  onChange={handleChange}
-                  placeholder="+51 999 999 999"
-                  className={`w-full px-4 py-3 rounded-xl border text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-2 transition
+                    value={form.telefono}
+                    onChange={handleChange}
+                    placeholder="+51 999 999 999"
+                    className={`w-full px-4 py-3 rounded-xl border text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-2 transition
       ${errors.telefono
-                      ? 'border-red-300 focus:border-red-400 focus:ring-red-100'
-                      : 'border-slate-200 focus:border-blue-400 focus:ring-blue-100'
-                    }`}
-                />
-                {errors.telefono && (
-                  <p className="text-red-400 text-xs">{errors.telefono}</p>
-                )}
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-sm text-slate-600 font-medium">Servicio</label>
-                <select
-                  name="servicio"
+                        ? 'border-red-300 focus:border-red-400 focus:ring-red-100'
+                        : 'border-slate-200 focus:border-blue-400 focus:ring-blue-100'
+                      }`}
+                  />
+                  {errors.telefono && (
+                    <p className="text-red-400 text-xs">{errors.telefono}</p>
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm text-slate-600 font-medium">Servicio</label>
+                  <select
+                    name="servicio"
 
-                  value={form.servicio}
-                  onChange={handleChange}
-                  className={`w-full px-4 py-3 rounded-xl border text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-2 transition
+                    value={form.servicio}
+                    onChange={handleChange}
+                    className={`w-full px-4 py-3 rounded-xl border text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-2 transition
       ${errors.servicio
-                      ? 'border-red-300 focus:border-red-400 focus:ring-red-100'
-                      : 'border-slate-200 focus:border-blue-400 focus:ring-blue-100'
-                    }`}
-                >
-                  <option value="">Selecciona un servicio</option>
-                  {servicios.map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-                {errors.servicio && (
-                  <p className="text-red-400 text-xs">{errors.servicio}</p>
-                )}
+                        ? 'border-red-300 focus:border-red-400 focus:ring-red-100'
+                        : 'border-slate-200 focus:border-blue-400 focus:ring-blue-100'
+                      }`}
+                  >
+                    <option value="">Selecciona un servicio</option>
+                    {servicios.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                  {errors.servicio && (
+                    <p className="text-red-400 text-xs">{errors.servicio}</p>
+                  )}
+                </div>
               </div>
-            </div>
 
-            <div className="grid md:grid-cols-2 gap-5">
-              <div className="space-y-1.5">
-                <label className="text-sm text-slate-600 font-medium">Fecha</label>
-                <input
-                  type="date"
-                  name="fecha"
+              <div className="grid md:grid-cols-2 gap-5">
+                <div className="space-y-1.5">
+                  <label className="text-sm text-slate-600 font-medium">Fecha</label>
+                  <input
+                    type="date"
+                    name="fecha"
 
-                  value={form.fecha}
-                  onChange={handleChange}
-                  min={new Date().toISOString().split('T')[0]}
-                  className={`w-full px-4 py-3 rounded-xl border text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-2 transition
+                    value={form.fecha}
+                    onChange={handleChange}
+                    min={new Date().toISOString().split('T')[0]}
+                    className={`w-full px-4 py-3 rounded-xl border text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-2 transition
       ${errors.fecha
-                      ? 'border-red-300 focus:border-red-400 focus:ring-red-100'
-                      : 'border-slate-200 focus:border-blue-400 focus:ring-blue-100'
-                    }`}
-                />
-                {errors.fecha && (
-                  <p className="text-red-400 text-xs">{errors.fecha}</p>
-                )}
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-sm text-slate-600 font-medium">Hora</label>
-                <select
-                  name="hora"
-
-                  value={form.hora}
-                  onChange={handleChange}
-                  className={`w-full px-4 py-3 rounded-xl border text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-2 transition
+                        ? 'border-red-300 focus:border-red-400 focus:ring-red-100'
+                        : 'border-slate-200 focus:border-blue-400 focus:ring-blue-100'
+                      }`}
+                  />
+                  {errors.fecha && (
+                    <p className="text-red-400 text-xs">{errors.fecha}</p>
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm text-slate-600 font-medium">Hora</label>
+                  <select
+                    name="hora"
+                    value={form.hora}
+                    onChange={handleChange}
+                    className={`w-full px-4 py-3 rounded-xl border text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-2 transition
       ${errors.hora
-                      ? 'border-red-300 focus:border-red-400 focus:ring-red-100'
-                      : 'border-slate-200 focus:border-blue-400 focus:ring-blue-100'
-                    }`}
-                >
-                  <option value="">Selecciona una hora</option>
-                  {horas.map((h) => (
-                    <option key={h} value={h}>{h}</option>
-                  ))}
-                </select>
-                {errors.hora && (
-                  <p className="text-red-400 text-xs">{errors.hora}</p>
-                )}
+                        ? 'border-red-300 focus:border-red-400 focus:ring-red-100'
+                        : 'border-slate-200 focus:border-blue-400 focus:ring-blue-100'
+                      }`}
+                  >
+                    <option value="">Selecciona una hora</option>
+                    {horas.map((h) => {
+                      const ocupada = horasOcupadas.includes(h)
+                      return (
+                        <option key={h} value={h} disabled={ocupada}>
+                          {h} {ocupada ? '— No disponible' : ''}
+                        </option>
+                      )
+                    })}
+                  </select>
+                  {errors.hora && (
+                    <p className="text-red-400 text-xs">{errors.hora}</p>
+                  )}
+                </div>
               </div>
-            </div>
 
-            <div className="space-y-1.5">
-              <label className="text-sm text-slate-600 font-medium">Mensaje adicional <span className="text-slate-300">(opcional)</span></label>
-              <textarea
-                name="mensaje"
-                value={form.mensaje}
-                onChange={handleChange}
-                rows={3}
-                placeholder="Cuéntanos algo más sobre tu consulta..."
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-700 placeholder:text-slate-300 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition resize-none"
-              />
-            </div>
+              <div className="space-y-1.5">
+                <label className="text-sm text-slate-600 font-medium">Mensaje adicional <span className="text-slate-300">(opcional)</span></label>
+                <textarea
+                  name="mensaje"
+                  value={form.mensaje}
+                  onChange={handleChange}
+                  rows={3}
+                  placeholder="Cuéntanos algo más sobre tu consulta..."
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-700 placeholder:text-slate-300 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition resize-none"
+                />
+              </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 text-white py-4 rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Enviando reserva...' : 'Confirmar reserva'}
-            </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-blue-600 text-white py-4 rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {loading ? 'Enviando reserva...' : 'Confirmar reserva'}
+              </button>
 
-          </form>
+            </form>
           </FadeIn>
-          
+
         )}
 
       </div>
