@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import CalendarView from '../components/CalendarView'
 
-const PASSWORD = 'admin1234'
+const PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD
 
 const ESTADOS = ['Pendiente', 'Confirmada', 'Cancelada']
 
