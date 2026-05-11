@@ -108,11 +108,24 @@ export default function Booking() {
 
     if (error) {
       setError('Hubo un problema al enviar tu reserva. Intenta de nuevo.')
-    } else {
-      setSuccess(true)
-      setForm(initialForm)
+      setLoading(false)
+      return
     }
 
+    // Llamar a la Edge Function para enviar el email
+    await supabase.functions.invoke('send-confirmation', {
+      body: {
+        nombre: form.nombre,
+        email: form.email,
+        servicio: form.servicio,
+        fecha: form.fecha,
+        hora: form.hora,
+      },
+    })
+
+    setSuccess(true)
+    setForm(initialForm)
+    setErrors(initialErrors)
     setLoading(false)
   }
 

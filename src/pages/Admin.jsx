@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import CalendarView from '../components/CalendarView'
 
 const PASSWORD = 'admin1234'
 
@@ -18,6 +19,7 @@ export default function Admin() {
   const [reservas, setReservas] = useState([])
   const [loading, setLoading] = useState(false)
   const [filtro, setFiltro] = useState('Todos')
+  const [showCalendar, setShowCalendar] = useState(false)
 
   const handleLogin = (e) => {
     e.preventDefault()
@@ -41,6 +43,20 @@ export default function Admin() {
   const updateEstado = async (id, estado) => {
     await supabase.from('reservas').update({ estado }).eq('id', id)
     setReservas(reservas.map(r => r.id === id ? { ...r, estado } : r))
+
+    // Enviar email solo cuando se confirma
+    if (estado === 'Confirmada') {
+      const reserva = reservas.find(r => r.id === id)
+      await supabase.functions.invoke('send-confirmation', {
+        body: {
+          nombre: reserva.nombre,
+          email: reserva.email,
+          servicio: reserva.servicio,
+          fecha: reserva.fecha,
+          hora: reserva.hora,
+        },
+      })
+    }
   }
 
   const deleteReserva = async (id) => {
@@ -104,7 +120,7 @@ export default function Admin() {
   // — Login —
   if (!authed) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
+      <div className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-400 to-blue-200 flex items-center justify-center px-4">
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-8 w-full max-w-sm space-y-6">
           <div className="text-center space-y-1">
             <p className="text-2xl font-bold text-slate-800">
@@ -138,23 +154,31 @@ export default function Admin() {
 
   // — Panel —
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-gradient-to-br from-black via-blue-400 to-blue-200">
 
       {/* Header */}
-      <header className="bg-white border-b border-slate-100 px-6 py-4 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <p className="text-xl font-bold text-slate-800">
-            <span className="text-blue-600">Dental</span>Prime
-            <span className="text-slate-300 font-light mx-3">|</span>
-            <span className="text-slate-500 font-normal text-base">Panel de reservas</span>
+      <header className="bg-slate-900 border-slate-800 px-6 py-4 sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto flex flex-wrap items-center gap-3 justify-between">
+          <p className="text-lg font-bold text-white">
+            <span className="text-blue-400">Dental</span>Prime
+            <span className="hidden sm:inline text-slate-600 font-light mx-3">|</span>
+            <span className="hidden sm:inline text-slate-400 font-normal text-base">Panel de reservas</span>
           </p>
-          <div className="flex items-center gap-6">
-            <span className="text-sm text-slate-400">{reservas.length} reservas totales</span>
+
+          <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
+            <button
+              onClick={() => setShowCalendar(true)}
+              className="text-sm bg-white/10 text-white hover:bg-white/20 transition-colors px-3 sm:px-4 py-1.5 rounded-full flex items-center gap-2"
+            >
+              📅 <span className="hidden sm:inline">Calendario</span>
+            </button>
+            <span className="text-sm bg-white/10 text-white px-3 sm:px-4 py-1.5 rounded-full hover:bg-white/20 hidden sm:inline">{reservas.length} reservas totales</span>
             <button
               onClick={() => setAuthed(false)}
-              className="text-sm bg-red-50 text-red-400 hover:bg-red-100 transition-colors px-4 py-1.5 rounded-full"
+              className="text-sm bg-slate-800 text-red-400 hover:bg-slate-700 transition-colors px-3 sm:px-4 py-1.5 rounded-full"
             >
-              Cerrar sesión
+              <span className="hidden sm:inline">Cerrar sesión</span>
+              <span className="sm:hidden">✕</span>
             </button>
           </div>
         </div>
@@ -168,7 +192,7 @@ export default function Admin() {
           {stats.map(s => (
             <div
               key={s.label}
-              className="bg-white rounded-2xl border border-slate-100 p-6 flex items-center gap-4 shadow-sm"
+              className="bg-white/90 backdrop-blur-sm rounded-2xl border border-white/50 p-6 flex items-center gap-4 shadow-sm"
             >
               <div className={`w-12 h-12 ${s.bg} rounded-xl flex items-center justify-center text-2xl shrink-0`}>
                 {s.icon}
@@ -212,8 +236,8 @@ export default function Admin() {
               key={f}
               onClick={() => setFiltro(f)}
               className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${filtro === f
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'bg-white text-slate-500 border border-slate-200 hover:border-blue-300'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'bg-white/80 text-slate-500 border border-white/50 hover:bg-white'
                 }`}
             >
               {f}
@@ -232,7 +256,7 @@ export default function Admin() {
             <p className="text-slate-400">No hay reservas en esta categoría.</p>
           </div>
         ) : (
-          <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
+          <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-slate-100 overflow-hidden shadow-sm">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-100 text-slate-400 text-left">
@@ -295,6 +319,12 @@ export default function Admin() {
         )}
 
       </div>
+      {showCalendar && (
+        <CalendarView
+          reservas={reservas}
+          onClose={() => setShowCalendar(false)}
+        />
+      )}
     </div>
   )
 }

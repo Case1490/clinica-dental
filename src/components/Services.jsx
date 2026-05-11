@@ -64,7 +64,7 @@ export default function Services() {
         {/* Grid de tarjetas */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {services.map((service) => (
-            <FadeIn>
+            <FadeIn key={service.title}>
               <div
                 key={service.title}
                 className="group p-6 rounded-2xl border border-slate-100 hover:border-blue-200 hover:shadow-lg hover:shadow-blue-50 transition-all duration-300 cursor-pointer"
