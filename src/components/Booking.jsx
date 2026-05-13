@@ -112,17 +112,6 @@ export default function Booking() {
       return
     }
 
-    // Llamar a la Edge Function para enviar el email
-    await supabase.functions.invoke('send-confirmation', {
-      body: {
-        nombre: form.nombre,
-        email: form.email,
-        servicio: form.servicio,
-        fecha: form.fecha,
-        hora: form.hora,
-      },
-    })
-
     setSuccess(true)
     setForm(initialForm)
     setErrors(initialErrors)

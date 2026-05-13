@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import CalendarView from '../components/CalendarView'
 
 const PASSWORD = import.meta.env.VITE_ADMIN_PASS
+console.log(PASSWORD)
 
 const ESTADOS = ['Pendiente', 'Confirmada', 'Cancelada']
 
