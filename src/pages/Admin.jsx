@@ -3,8 +3,6 @@ import { supabase } from '../lib/supabase'
 import CalendarView from '../components/CalendarView'
 
 const PASSWORD = import.meta.env.VITE_ADMIN_PASS
-console.log(PASSWORD)
-
 const ESTADOS = ['Pendiente', 'Confirmada', 'Cancelada']
 
 const estadoStyles = {
@@ -20,6 +18,7 @@ export default function Admin() {
   const [reservas, setReservas] = useState([])
   const [loading, setLoading] = useState(false)
   const [filtro, setFiltro] = useState('Todos')
+  const [filtroFecha, setFiltroFecha] = useState('Todas')
   const [showCalendar, setShowCalendar] = useState(false)
 
   const handleLogin = (e) => {
@@ -37,6 +36,7 @@ export default function Admin() {
       .from('reservas')
       .select('*')
       .order('fecha', { ascending: true })
+      .order('hora', { ascending: true })
     setReservas(data || [])
     setLoading(false)
   }
@@ -70,9 +70,19 @@ export default function Admin() {
     if (authed) fetchReservas()
   }, [authed])
 
-  const filtradas = filtro === 'Todos'
-    ? reservas
-    : reservas.filter(r => (r.estado || 'Pendiente') === filtro)
+  const hoy = new Date().toLocaleDateString('en-CA')
+  const manana = new Date(Date.now() + 86400000).toLocaleDateString('en-CA')
+  const pasado = new Date(Date.now() + 172800000).toLocaleDateString('en-CA')
+
+  const filtradas = reservas
+    .filter(r => filtro === 'Todos' ? true : (r.estado || 'Pendiente') === filtro)
+    .filter(r => {
+      if (filtroFecha === 'Todas') return true
+      if (filtroFecha === 'Hoy') return r.fecha === hoy
+      if (filtroFecha === 'Mañana') return r.fecha === manana
+      if (filtroFecha === 'Pasado') return r.fecha === pasado
+      return r.fecha === filtroFecha // fecha específica del input
+    })
 
   const stats = [
     {
@@ -105,10 +115,6 @@ export default function Admin() {
     },
   ]
 
-  const hoy = new Date().toLocaleDateString('en-CA')
-
-  const reservasHoy = reservas.filter(r => r.fecha === hoy).length
-
   const servicioTop = reservas.length > 0
     ? Object.entries(
       reservas.reduce((acc, r) => {
@@ -117,6 +123,8 @@ export default function Admin() {
       }, {})
     ).sort((a, b) => b[1] - a[1])[0][0]
     : '—'
+
+  const reservasHoy = reservas.filter(r => r.fecha === hoy).length
 
   // — Login —
   if (!authed) {
@@ -230,20 +238,48 @@ export default function Admin() {
         </div>
 
         {/* Filtros */}
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-slate-400 mr-2">Filtrar:</span>
-          {['Todos', ...ESTADOS].map(f => (
-            <button
-              key={f}
-              onClick={() => setFiltro(f)}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${filtro === f
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'bg-white/80 text-slate-500 border border-white/50 hover:bg-white'
-                }`}
-            >
-              {f}
-            </button>
-          ))}
+        <div className="space-y-3">
+
+          {/* Filtro por estado */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm text-white/70 mr-1">Estado:</span>
+            {['Todos', ...ESTADOS].map(f => (
+              <button
+                key={f}
+                onClick={() => setFiltro(f)}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${filtro === f
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'bg-white/80 text-slate-500 border border-white/50 hover:bg-white'
+                  }`}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+
+          {/* Filtro por fecha */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm text-white/70 mr-1">Fecha:</span>
+            {['Todas', 'Hoy', 'Mañana', 'Pasado'].map(f => (
+              <button
+                key={f}
+                onClick={() => setFiltroFecha(f === filtroFecha ? 'Todas' : f)}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${filtroFecha === f
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'bg-white/80 text-slate-500 border border-white/50 hover:bg-white'
+                  }`}
+              >
+                {f}
+              </button>
+            ))}
+            <input
+              type="date"
+              value={filtroFecha.includes('-') ? filtroFecha : ''}
+              onChange={e => setFiltroFecha(e.target.value || 'Todas')}
+              className="px-4 py-1.5 rounded-full text-sm text-slate-500 bg-white/80 border border-white/50 focus:outline-none focus:bg-white cursor-pointer"
+            />
+          </div>
+
         </div>
 
         {/* Tabla */}
