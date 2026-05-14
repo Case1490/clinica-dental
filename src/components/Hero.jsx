@@ -67,7 +67,20 @@ export default function Hero() {
           transition={{ duration: 0.6, delay: 0.3 }}
           className="relative hidden md:flex justify-center items-center"
         >
-          {/* Tarjeta igual que antes */}
+          <div className="w-80 h-80 bg-white/20 rounded-full absolute" />
+          <div className="relative bg-white rounded-3xl shadow-xl p-8 space-y-4 w-72">
+            <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center text-3xl">
+              🦷
+            </div>
+            <p className="text-slate-800 font-semibold text-lg">Primera consulta</p>
+            <p className="text-slate-400 text-sm">Evaluación completa sin costo adicional para nuevos pacientes.</p>
+
+            <a href="#reservas"
+              className="block bg-blue-600 text-white text-center py-2.5 rounded-full text-sm font-medium hover:bg-blue-700 transition-colors"
+            >
+              Reservar ahora
+            </a>
+          </div>
         </motion.div>
 
       </div>
