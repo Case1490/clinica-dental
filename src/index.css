@@ -1,8 +1,136 @@
 @import "tailwindcss";
 @import "react-calendar/dist/Calendar.css";
 
+@theme {
+  /* Material 3 color tokens */
+  --color-on-surface-variant: #434655;
+  --color-primary-container: #0d52e8;
+  --color-secondary-fixed: #c9e6ff;
+  --color-primary-fixed-dim: #b6c4ff;
+  --color-outline-variant: #c3c5d8;
+  --color-on-secondary: #ffffff;
+  --color-secondary: #006591;
+  --color-on-primary-container: #d4dbff;
+  --color-secondary-fixed-dim: #89ceff;
+  --color-on-error-container: #93000a;
+  --color-surface-bright: #faf8ff;
+  --color-on-tertiary-fixed: #002113;
+  --color-surface-container-high: #e2e7ff;
+  --color-surface-container-lowest: #ffffff;
+  --color-on-tertiary-container: #68f5b8;
+  --color-surface-container-highest: #dae2fd;
+  --color-surface-container-low: #f2f3ff;
+  --color-tertiary-fixed-dim: #4edea3;
+  --color-tertiary: #005438;
+  --color-tertiary-container: #006f4b;
+  --color-on-primary: #ffffff;
+  --color-primary-fixed: #dce1ff;
+  --color-inverse-on-surface: #eef0ff;
+  --color-secondary-container: #39b8fd;
+  --color-on-tertiary-fixed-variant: #005236;
+  --color-on-background: #131b2e;
+  --color-tertiary-fixed: #6ffbbe;
+  --color-error: #ba1a1a;
+  --color-on-primary-fixed-variant: #003bb1;
+  --color-on-secondary-fixed-variant: #004c6e;
+  --color-on-primary-fixed: #00164f;
+  --color-background: #faf8ff;
+  --color-surface-dim: #d2d9f4;
+  --color-inverse-primary: #b6c4ff;
+  --color-on-error: #ffffff;
+  --color-primary: #003db7;
+  --color-outline: #737687;
+  --color-on-tertiary: #ffffff;
+  --color-surface-tint: #024fe5;
+  --color-inverse-surface: #283044;
+  --color-on-secondary-fixed: #001e2f;
+  --color-on-surface: #131b2e;
+  --color-surface: #faf8ff;
+  --color-surface-container: #eaedff;
+  --color-on-secondary-container: #004666;
+  --color-error-container: #ffdad6;
+  --color-surface-variant: #dae2fd;
+
+  /* Radii */
+  --radius: 0.25rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-full: 9999px;
+
+  /* Custom spacing scale */
+  --spacing-space-xl: 2.5rem;
+  --spacing-gutter-mobile: 1rem;
+  --spacing-margin-mobile: 1.25rem;
+  --spacing-space-lg: 1.5rem;
+  --spacing-space-xs: 0.25rem;
+  --spacing-space-sm: 0.5rem;
+  --spacing-space-md: 1rem;
+  --spacing-margin: 2rem;
+  --spacing-gutter: 1.5rem;
+
+  /* Typography families (all Material3 tokens share the same face) */
+  --font-headline-md: "Plus Jakarta Sans", sans-serif;
+  --font-label-eyebrow: "Plus Jakarta Sans", sans-serif;
+  --font-headline-2xl: "Plus Jakarta Sans", sans-serif;
+  --font-body-lg: "Plus Jakarta Sans", sans-serif;
+  --font-label-md: "Plus Jakarta Sans", sans-serif;
+  --font-body-md: "Plus Jakarta Sans", sans-serif;
+  --font-headline-2xl-mobile: "Plus Jakarta Sans", sans-serif;
+  --font-headline-xl: "Plus Jakarta Sans", sans-serif;
+  --font-headline-sm: "Plus Jakarta Sans", sans-serif;
+  --font-headline-xl-mobile: "Plus Jakarta Sans", sans-serif;
+  --font-body-sm: "Plus Jakarta Sans", sans-serif;
+  --font-label-lg: "Plus Jakarta Sans", sans-serif;
+  --font-headline-lg: "Plus Jakarta Sans", sans-serif;
+
+  /* Typography sizes (size / line-height / weight) */
+  --text-headline-md: 20px;
+  --text-headline-md--line-height: 28px;
+  --text-headline-md--font-weight: 600;
+  --text-label-eyebrow: 11px;
+  --text-label-eyebrow--line-height: 16px;
+  --text-label-eyebrow--font-weight: 700;
+  --text-headline-2xl: 48px;
+  --text-headline-2xl--line-height: 56px;
+  --text-headline-2xl--font-weight: 800;
+  --text-body-lg: 18px;
+  --text-body-lg--line-height: 28px;
+  --text-body-lg--font-weight: 400;
+  --text-label-md: 12px;
+  --text-label-md--line-height: 16px;
+  --text-label-md--font-weight: 600;
+  --text-body-md: 15px;
+  --text-body-md--line-height: 24px;
+  --text-body-md--font-weight: 400;
+  --text-headline-2xl-mobile: 32px;
+  --text-headline-2xl-mobile--line-height: 40px;
+  --text-headline-2xl-mobile--font-weight: 800;
+  --text-headline-xl: 36px;
+  --text-headline-xl--line-height: 44px;
+  --text-headline-xl--font-weight: 700;
+  --text-headline-sm: 16px;
+  --text-headline-sm--line-height: 24px;
+  --text-headline-sm--font-weight: 600;
+  --text-headline-xl-mobile: 26px;
+  --text-headline-xl-mobile--line-height: 34px;
+  --text-headline-xl-mobile--font-weight: 700;
+  --text-body-sm: 13px;
+  --text-body-sm--line-height: 20px;
+  --text-body-sm--font-weight: 400;
+  --text-label-lg: 14px;
+  --text-label-lg--line-height: 20px;
+  --text-label-lg--font-weight: 600;
+  --text-headline-lg: 24px;
+  --text-headline-lg--line-height: 32px;
+  --text-headline-lg--font-weight: 700;
+}
+
 *{
   scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-surface font-body-md text-on-surface antialiased;
 }
 
 .react-calendar {

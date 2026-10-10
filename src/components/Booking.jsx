@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
-import FadeIn from './FadeIn'
+import TurnstileWidget from './TurnstileWidget'
 
 const servicios = [
   'Limpieza Dental',
@@ -17,6 +17,7 @@ const horas = [
 ]
 
 const initialForm = {
+  doctor_id: '',
   nombre: '',
   email: '',
   telefono: '',
@@ -27,6 +28,7 @@ const initialForm = {
 }
 
 const initialErrors = {
+  doctor_id: '',
   nombre: '',
   email: '',
   telefono: '',
@@ -41,12 +43,36 @@ export default function Booking() {
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState(null)
   const [errors, setErrors] = useState(initialErrors)
+  const [doctores, setDoctores] = useState([])
   const [horasOcupadas, setHorasOcupadas] = useState([])
+  const [turnstileToken, setTurnstileToken] = useState(null)
+  const [captchaKey, setCaptchaKey] = useState(0)
 
-  const fetchHorasOcupadas = async (fecha) => {
+  const handleCaptchaVerify = useCallback((token) => setTurnstileToken(token), [])
+  const handleCaptchaExpire = useCallback(() => setTurnstileToken(null), [])
+  const resetCaptcha = () => {
+    setTurnstileToken(null)
+    setCaptchaKey((k) => k + 1)
+  }
+
+  useEffect(() => {
+    supabase
+      .from('doctores')
+      .select('id, nombre, especialidad')
+      .eq('activo', true)
+      .order('nombre')
+      .then(({ data }) => setDoctores(data || []))
+  }, [])
+
+  const fetchHorasOcupadas = async (doctorId, fecha) => {
+    if (!doctorId || !fecha) {
+      setHorasOcupadas([])
+      return
+    }
     const { data } = await supabase
       .from('reservas')
       .select('hora')
+      .eq('doctor_id', doctorId)
       .eq('fecha', fecha)
       .in('estado', ['Pendiente', 'Confirmada'])
 
@@ -55,14 +81,22 @@ export default function Booking() {
 
   const handleChange = (e) => {
     const { name, value } = e.target
-    setForm({ ...form, [name]: value, ...(name === 'fecha' ? { hora: '' } : {}) })
+    const nextForm = { ...form, [name]: value, ...(name === 'fecha' || name === 'doctor_id' ? { hora: '' } : {}) }
+    setForm(nextForm)
 
-    if (name === 'fecha') fetchHorasOcupadas(value)
+    if (name === 'fecha' || name === 'doctor_id') {
+      fetchHorasOcupadas(nextForm.doctor_id, nextForm.fecha)
+    }
   }
 
   const validate = () => {
     const newErrors = { ...initialErrors }
     let valid = true
+
+    if (!form.doctor_id) {
+      newErrors.doctor_id = 'Selecciona un especialista'
+      valid = false
+    }
 
     if (form.nombre.trim().length < 3) {
       newErrors.nombre = 'Ingresa tu nombre completo'
@@ -101,13 +135,35 @@ export default function Booking() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!validate()) return
+
+    if (!turnstileToken) {
+      setError('Completa la verificación anti-spam antes de continuar.')
+      return
+    }
+
     setLoading(true)
     setError(null)
 
-    const { error } = await supabase.from('reservas').insert([form])
+    const { data, error } = await supabase.functions.invoke('crear-reserva', {
+      body: {
+        doctor_id: form.doctor_id,
+        nombre: form.nombre,
+        email: form.email,
+        telefono: form.telefono,
+        servicio: form.servicio,
+        fecha: form.fecha,
+        hora: form.hora,
+        mensaje: form.mensaje || null,
+        turnstileToken,
+      },
+    })
 
-    if (error) {
-      setError('Hubo un problema al enviar tu reserva. Intenta de nuevo.')
+    resetCaptcha()
+
+    if (error || data?.error) {
+      const isConflict = error?.context?.status === 409
+      setError(data?.error || 'Hubo un problema al enviar tu reserva. Intenta de nuevo.')
+      if (isConflict) fetchHorasOcupadas(form.doctor_id, form.fecha)
       setLoading(false)
       return
     }
@@ -118,212 +174,171 @@ export default function Booking() {
     setLoading(false)
   }
 
+  const inputClass = (hasError) => `h-12 px-3.5 rounded-xl bg-surface-container-low text-on-surface placeholder:text-outline-variant font-body-md text-body-md focus:outline-none focus:ring-2 transition-all w-full ${hasError ? 'ring-2 ring-error' : 'focus:ring-primary-container'
+    }`
+
   return (
-    <section id="reservas" className="py-24 bg-white">
-      <div className="max-w-3xl mx-auto px-6">
+    <>
+      {/* Éxito */}
+      {success && (
+        <div className="bg-tertiary-fixed text-on-tertiary-fixed rounded-2xl p-6 text-center mb-6 space-y-2">
+          <p className="text-2xl">🎉</p>
+          <p className="font-semibold">¡Reserva enviada con éxito!</p>
+          <p className="font-body-sm text-body-sm">Te contactaremos pronto para confirmar tu cita.</p>
+          <button
+            onClick={() => setSuccess(false)}
+            className="mt-2 font-label-md text-label-md underline"
+          >
+            Hacer otra reserva
+          </button>
+        </div>
+      )}
 
-        {/* Header */}
-        <FadeIn>
-          <div className="text-center space-y-4 mb-12">
-            <span className="text-blue-600 text-sm font-medium tracking-widest uppercase">
-              Agenda tu cita
-            </span>
-            <h2 className="text-4xl font-bold text-slate-800">
-              Reserva en minutos
-            </h2>
-            <p className="text-slate-400">
-              Completa el formulario y nos pondremos en contacto para confirmar tu cita.
-            </p>
-          </div>
-        </FadeIn>
+      {/* Error */}
+      {error && (
+        <div className="bg-error-container text-on-error-container rounded-2xl p-4 text-center mb-6 font-body-sm text-body-sm">
+          {error}
+        </div>
+      )}
 
+      {/* Formulario */}
+      {!success && (
+        <form onSubmit={handleSubmit} className="flex flex-col gap-space-md">
 
-        {/* Éxito */}
-        {success && (
-          <div className="bg-blue-50 border border-blue-200 text-blue-700 rounded-2xl p-6 text-center mb-8 space-y-2">
-            <p className="text-2xl">🎉</p>
-            <p className="font-semibold">¡Reserva enviada con éxito!</p>
-            <p className="text-sm text-blue-500">Te contactaremos pronto para confirmar tu cita.</p>
-            <button
-              onClick={() => setSuccess(false)}
-              className="mt-2 text-sm underline text-blue-600 hover:text-blue-800"
+          <div className="flex flex-col gap-1.5">
+            <label className="font-label-lg text-label-lg text-on-surface">Especialista</label>
+            <select
+              name="doctor_id"
+              value={form.doctor_id}
+              onChange={handleChange}
+              className={inputClass(errors.doctor_id)}
             >
-              Hacer otra reserva
-            </button>
+              <option value="">Selecciona un especialista</option>
+              {doctores.map((d) => (
+                <option key={d.id} value={d.id}>{d.nombre}{d.especialidad ? ` — ${d.especialidad}` : ''}</option>
+              ))}
+            </select>
+            {errors.doctor_id && <p className="font-body-sm text-body-sm text-error">{errors.doctor_id}</p>}
           </div>
-        )}
 
-        {/* Error */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-600 rounded-2xl p-4 text-center mb-6 text-sm">
-            {error}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-space-md">
+            <div className="flex flex-col gap-1.5">
+              <label className="font-label-lg text-label-lg text-on-surface">Nombre completo</label>
+              <input
+                type="text"
+                name="nombre"
+                value={form.nombre}
+                onChange={handleChange}
+                placeholder="Juan Pérez"
+                className={inputClass(errors.nombre)}
+              />
+              {errors.nombre && <p className="font-body-sm text-body-sm text-error">{errors.nombre}</p>}
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="font-label-lg text-label-lg text-on-surface">Correo electrónico</label>
+              <input
+                type="email"
+                name="email"
+                value={form.email}
+                onChange={handleChange}
+                placeholder="juan@email.com"
+                className={inputClass(errors.email)}
+              />
+              {errors.email && <p className="font-body-sm text-body-sm text-error">{errors.email}</p>}
+            </div>
           </div>
-        )}
 
-        {/* Formulario */}
-        {!success && (
-          <FadeIn delay={0.15}>
-            <form onSubmit={handleSubmit} className="space-y-5">
-
-              <div className="grid md:grid-cols-2 gap-5">
-                <div className="space-y-1.5">
-                  <label className="text-sm text-slate-600 font-medium">Nombre completo</label>
-                  <input
-                    type="text"
-                    name="nombre"
-
-                    value={form.nombre}
-                    onChange={handleChange}
-                    placeholder="Juan Pérez"
-                    className={`w-full px-4 py-3 rounded-xl border text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-2 transition
-      ${errors.nombre
-                        ? 'border-red-300 focus:border-red-400 focus:ring-red-100'
-                        : 'border-slate-200 focus:border-blue-400 focus:ring-blue-100'
-                      }`}
-                  />
-                  {errors.nombre && (
-                    <p className="text-red-400 text-xs">{errors.nombre}</p>
-                  )}
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm text-slate-600 font-medium">Correo electrónico</label>
-                  <input
-                    type="email"
-                    name="email"
-
-                    value={form.email}
-                    onChange={handleChange}
-                    placeholder="juan@email.com"
-                    className={`w-full px-4 py-3 rounded-xl border text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-2 transition
-      ${errors.email
-                        ? 'border-red-300 focus:border-red-400 focus:ring-red-100'
-                        : 'border-slate-200 focus:border-blue-400 focus:ring-blue-100'
-                      }`}
-                  />
-                  {errors.email && (
-                    <p className="text-red-400 text-xs">{errors.email}</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-5">
-                <div className="space-y-1.5">
-                  <label className="text-sm text-slate-600 font-medium">Teléfono</label>
-                  <input
-                    type="tel"
-                    name="telefono"
-
-                    value={form.telefono}
-                    onChange={handleChange}
-                    placeholder="+51 999 999 999"
-                    className={`w-full px-4 py-3 rounded-xl border text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-2 transition
-      ${errors.telefono
-                        ? 'border-red-300 focus:border-red-400 focus:ring-red-100'
-                        : 'border-slate-200 focus:border-blue-400 focus:ring-blue-100'
-                      }`}
-                  />
-                  {errors.telefono && (
-                    <p className="text-red-400 text-xs">{errors.telefono}</p>
-                  )}
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm text-slate-600 font-medium">Servicio</label>
-                  <select
-                    name="servicio"
-
-                    value={form.servicio}
-                    onChange={handleChange}
-                    className={`w-full px-4 py-3 rounded-xl border text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-2 transition
-      ${errors.servicio
-                        ? 'border-red-300 focus:border-red-400 focus:ring-red-100'
-                        : 'border-slate-200 focus:border-blue-400 focus:ring-blue-100'
-                      }`}
-                  >
-                    <option value="">Selecciona un servicio</option>
-                    {servicios.map((s) => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
-                  {errors.servicio && (
-                    <p className="text-red-400 text-xs">{errors.servicio}</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-5">
-                <div className="space-y-1.5">
-                  <label className="text-sm text-slate-600 font-medium">Fecha</label>
-                  <input
-                    type="date"
-                    name="fecha"
-
-                    value={form.fecha}
-                    onChange={handleChange}
-                    min={new Date().toISOString().split('T')[0]}
-                    className={`w-full px-4 py-3 rounded-xl border text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-2 transition
-      ${errors.fecha
-                        ? 'border-red-300 focus:border-red-400 focus:ring-red-100'
-                        : 'border-slate-200 focus:border-blue-400 focus:ring-blue-100'
-                      }`}
-                  />
-                  {errors.fecha && (
-                    <p className="text-red-400 text-xs">{errors.fecha}</p>
-                  )}
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm text-slate-600 font-medium">Hora</label>
-                  <select
-                    name="hora"
-                    value={form.hora}
-                    onChange={handleChange}
-                    className={`w-full px-4 py-3 rounded-xl border text-slate-700 placeholder:text-slate-300 focus:outline-none focus:ring-2 transition
-      ${errors.hora
-                        ? 'border-red-300 focus:border-red-400 focus:ring-red-100'
-                        : 'border-slate-200 focus:border-blue-400 focus:ring-blue-100'
-                      }`}
-                  >
-                    <option value="">Selecciona una hora</option>
-                    {horas.map((h) => {
-                      const ocupada = horasOcupadas.includes(h)
-                      return (
-                        <option key={h} value={h} disabled={ocupada}>
-                          {h} {ocupada ? '— No disponible' : ''}
-                        </option>
-                      )
-                    })}
-                  </select>
-                  {errors.hora && (
-                    <p className="text-red-400 text-xs">{errors.hora}</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-sm text-slate-600 font-medium">Mensaje adicional <span className="text-slate-300">(opcional)</span></label>
-                <textarea
-                  name="mensaje"
-                  value={form.mensaje}
-                  onChange={handleChange}
-                  rows={3}
-                  placeholder="Cuéntanos algo más sobre tu consulta..."
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-700 placeholder:text-slate-300 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition resize-none"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-blue-600 text-white py-4 rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-space-md">
+            <div className="flex flex-col gap-1.5">
+              <label className="font-label-lg text-label-lg text-on-surface">Teléfono / WhatsApp</label>
+              <input
+                type="tel"
+                name="telefono"
+                value={form.telefono}
+                onChange={handleChange}
+                placeholder="+51 999 999 999"
+                className={inputClass(errors.telefono)}
+              />
+              {errors.telefono && <p className="font-body-sm text-body-sm text-error">{errors.telefono}</p>}
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="font-label-lg text-label-lg text-on-surface">Servicio</label>
+              <select
+                name="servicio"
+                value={form.servicio}
+                onChange={handleChange}
+                className={inputClass(errors.servicio)}
               >
-                {loading ? 'Enviando reserva...' : 'Confirmar reserva'}
-              </button>
+                <option value="">Selecciona un servicio</option>
+                {servicios.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+              {errors.servicio && <p className="font-body-sm text-body-sm text-error">{errors.servicio}</p>}
+            </div>
+          </div>
 
-            </form>
-          </FadeIn>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-space-md">
+            <div className="flex flex-col gap-1.5">
+              <label className="font-label-lg text-label-lg text-on-surface">Fecha</label>
+              <input
+                type="date"
+                name="fecha"
+                value={form.fecha}
+                onChange={handleChange}
+                min={new Date().toISOString().split('T')[0]}
+                className={inputClass(errors.fecha)}
+              />
+              {errors.fecha && <p className="font-body-sm text-body-sm text-error">{errors.fecha}</p>}
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="font-label-lg text-label-lg text-on-surface">Hora</label>
+              <select
+                name="hora"
+                value={form.hora}
+                onChange={handleChange}
+                disabled={!form.doctor_id || !form.fecha}
+                className={`${inputClass(errors.hora)} disabled:opacity-60 disabled:cursor-not-allowed`}
+              >
+                <option value="">Selecciona una hora</option>
+                {horas.map((h) => {
+                  const ocupada = horasOcupadas.includes(h)
+                  return (
+                    <option key={h} value={h} disabled={ocupada}>
+                      {h} {ocupada ? '— No disponible' : ''}
+                    </option>
+                  )
+                })}
+              </select>
+              {errors.hora && <p className="font-body-sm text-body-sm text-error">{errors.hora}</p>}
+            </div>
+          </div>
 
-        )}
+          <div className="flex flex-col gap-1.5">
+            <label className="font-label-lg text-label-lg text-on-surface">Mensaje adicional <span className="text-on-surface-variant">(opcional)</span></label>
+            <textarea
+              name="mensaje"
+              value={form.mensaje}
+              onChange={handleChange}
+              rows={3}
+              placeholder="Cuéntanos algo más sobre tu consulta..."
+              className="px-3.5 py-3 rounded-xl bg-surface-container-low text-on-surface placeholder:text-outline-variant font-body-md text-body-md focus:outline-none focus:ring-2 focus:ring-primary-container transition-all resize-none w-full"
+            />
+          </div>
 
-      </div>
-    </section>
+          <TurnstileWidget key={captchaKey} onVerify={handleCaptchaVerify} onExpire={handleCaptchaExpire} />
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full h-14 rounded-full bg-primary-container hover:bg-primary text-on-primary font-label-lg text-label-lg font-bold shadow-[0_6px_20px_rgba(13,82,232,0.35)] flex items-center justify-center gap-space-xs transition-all duration-300 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <span className="material-symbols-outlined text-[20px]">calendar_month</span>
+            {loading ? 'Enviando reserva...' : 'Confirmar pre-reserva'}
+          </button>
+
+        </form>
+      )}
+    </>
   )
 }

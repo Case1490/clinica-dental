@@ -96,6 +96,12 @@ export default function CalendarView({ reservas, onClose }) {
                   <span>🕐 {r.hora}</span>
                   <span>·</span>
                   <span>🦷 {r.servicio}</span>
+                  {r.doctores?.nombre && (
+                    <>
+                      <span>·</span>
+                      <span>🩺 {r.doctores.nombre}</span>
+                    </>
+                  )}
                 </div>
                 <div className="text-xs text-slate-400 space-y-0.5">
                   <p>✉️ {r.email}</p>

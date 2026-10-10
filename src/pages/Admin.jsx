@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import CalendarView from '../components/CalendarView'
 
-const PASSWORD = import.meta.env.VITE_ADMIN_PASS
 const ESTADOS = ['Pendiente', 'Confirmada', 'Cancelada']
 
 const estadoStyles = {
@@ -12,33 +11,55 @@ const estadoStyles = {
 }
 
 export default function Admin() {
-  const [authed, setAuthed] = useState(false)
+  const [session, setSession] = useState(undefined)
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [loggingIn, setLoggingIn] = useState(false)
   const [reservas, setReservas] = useState([])
   const [loading, setLoading] = useState(false)
   const [filtro, setFiltro] = useState('Todos')
   const [filtroFecha, setFiltroFecha] = useState('Todas')
   const [showCalendar, setShowCalendar] = useState(false)
 
-  const handleLogin = (e) => {
-    e.preventDefault()
-    if (password === PASSWORD) {
-      setAuthed(true)
-    } else {
-      setError('Contraseña incorrecta')
-    }
-  }
-
   const fetchReservas = async () => {
     setLoading(true)
     const { data } = await supabase
       .from('reservas')
-      .select('*')
+      .select('*, doctores(nombre, especialidad)')
       .order('fecha', { ascending: true })
       .order('hora', { ascending: true })
     setReservas(data || [])
     setLoading(false)
+  }
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session)
+      if (data.session) fetchReservas()
+    })
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession)
+      if (newSession) fetchReservas()
+    })
+
+    return () => listener.subscription.unsubscribe()
+  }, [])
+
+  const authed = !!session
+
+  const handleLogin = async (e) => {
+    e.preventDefault()
+    setError('')
+    setLoggingIn(true)
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) setError('Credenciales incorrectas')
+    setLoggingIn(false)
+  }
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
   }
 
   const updateEstado = async (id, estado) => {
@@ -66,13 +87,18 @@ export default function Admin() {
     setReservas(reservas.filter(r => r.id !== id))
   }
 
-  useEffect(() => {
-    if (authed) fetchReservas()
-  }, [authed])
-
-  const hoy = new Date().toLocaleDateString('en-CA')
-  const manana = new Date(Date.now() + 86400000).toLocaleDateString('en-CA')
-  const pasado = new Date(Date.now() + 172800000).toLocaleDateString('en-CA')
+  const { hoy, manana, pasado } = useMemo(() => {
+    const base = new Date()
+    const manana = new Date(base)
+    manana.setDate(base.getDate() + 1)
+    const pasado = new Date(base)
+    pasado.setDate(base.getDate() + 2)
+    return {
+      hoy: base.toLocaleDateString('en-CA'),
+      manana: manana.toLocaleDateString('en-CA'),
+      pasado: pasado.toLocaleDateString('en-CA'),
+    }
+  }, [])
 
   const filtradas = reservas
     .filter(r => filtro === 'Todos' ? true : (r.estado || 'Pendiente') === filtro)
@@ -126,6 +152,15 @@ export default function Admin() {
 
   const reservasHoy = reservas.filter(r => r.fecha === hoy).length
 
+  // — Cargando sesión —
+  if (session === undefined) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-400 to-blue-200 flex items-center justify-center">
+        <p className="text-white">Cargando...</p>
+      </div>
+    )
+  }
+
   // — Login —
   if (!authed) {
     return (
@@ -139,6 +174,16 @@ export default function Admin() {
           </div>
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-1.5">
+              <label className="text-sm text-slate-600 font-medium">Correo</label>
+              <input
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="admin@dentalprime.com"
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-700 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition"
+              />
+            </div>
+            <div className="space-y-1.5">
               <label className="text-sm text-slate-600 font-medium">Contraseña</label>
               <input
                 type="password"
@@ -151,9 +196,10 @@ export default function Admin() {
             </div>
             <button
               type="submit"
-              className="w-full bg-blue-600 text-white py-3 rounded-xl font-medium hover:bg-blue-700 transition-colors"
+              disabled={loggingIn}
+              className="w-full bg-blue-600 text-white py-3 rounded-xl font-medium hover:bg-blue-700 transition-colors disabled:opacity-60"
             >
-              Ingresar
+              {loggingIn ? 'Ingresando...' : 'Ingresar'}
             </button>
           </form>
         </div>
@@ -183,7 +229,7 @@ export default function Admin() {
             </button>
             <span className="text-sm bg-white/10 text-white px-3 sm:px-4 py-1.5 rounded-full hover:bg-white/20 hidden sm:inline">{reservas.length} reservas totales</span>
             <button
-              onClick={() => setAuthed(false)}
+              onClick={handleLogout}
               className="text-sm bg-slate-800 text-red-400 hover:bg-slate-700 transition-colors px-3 sm:px-4 py-1.5 rounded-full"
             >
               <span className="hidden sm:inline">Cerrar sesión</span>
@@ -298,6 +344,7 @@ export default function Admin() {
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-100 text-slate-400 text-left">
                   <th className="px-6 py-4 font-medium">Paciente</th>
+                  <th className="px-6 py-4 font-medium">Especialista</th>
                   <th className="px-6 py-4 font-medium">Servicio</th>
                   <th className="px-6 py-4 font-medium">Fecha</th>
                   <th className="px-6 py-4 font-medium">Hora</th>
@@ -317,6 +364,7 @@ export default function Admin() {
                       <p className="text-slate-400 text-xs mt-0.5">{r.email}</p>
                       <p className="text-slate-400 text-xs">{r.telefono}</p>
                     </td>
+                    <td className="px-6 py-4 text-slate-600">{r.doctores?.nombre || '—'}</td>
                     <td className="px-6 py-4">
                       <span className="bg-blue-50 text-blue-600 text-xs font-medium px-3 py-1 rounded-full">
                         {r.servicio}
