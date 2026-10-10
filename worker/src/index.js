@@ -4,6 +4,10 @@ import './worker.js'
 
 const app = express()
 app.use(express.json())
+app.use((req, res, next) => {
+  console.log(`[req] ${req.method} ${req.path}`)
+  next()
+})
 
 function checkSecret(req, res, next) {
   const secret = req.header('x-worker-secret')
