@@ -66,17 +66,28 @@ export default function Admin() {
     await supabase.from('reservas').update({ estado }).eq('id', id)
     setReservas(reservas.map(r => r.id === id ? { ...r, estado } : r))
 
-    // Enviar email solo cuando se confirma
+    const reserva = reservas.find(r => r.id === id)
+    if (!reserva) return
+
     if (estado === 'Confirmada') {
-      const reserva = reservas.find(r => r.id === id)
-      await supabase.functions.invoke('send-confirmation', {
+      // Encola email de confirmación + recordatorios (24h y 2h antes) en el worker BullMQ.
+      await supabase.functions.invoke('notificar-reserva', {
         body: {
+          accion: 'confirmar',
+          reservaId: reserva.id,
           nombre: reserva.nombre,
           email: reserva.email,
           servicio: reserva.servicio,
+          doctorNombre: reserva.doctores?.nombre,
           fecha: reserva.fecha,
           hora: reserva.hora,
+          fechaInicio: reserva.fecha_inicio,
         },
+      })
+    } else if (estado === 'Cancelada') {
+      // Cancela recordatorios pendientes (la confirmación ya enviada no se revierte).
+      await supabase.functions.invoke('notificar-reserva', {
+        body: { accion: 'cancelar', reservaId: reserva.id },
       })
     }
   }
