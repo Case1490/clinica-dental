@@ -71,7 +71,7 @@ export default function Admin() {
 
     if (estado === 'Confirmada') {
       // Encola email de confirmación + recordatorios (24h y 2h antes) en el worker BullMQ.
-      await supabase.functions.invoke('notificar-reserva', {
+      const { error } = await supabase.functions.invoke('notificar-reserva', {
         body: {
           accion: 'confirmar',
           reservaId: reserva.id,
@@ -84,11 +84,17 @@ export default function Admin() {
           fechaInicio: reserva.fecha_inicio,
         },
       })
+      if (error) {
+        alert('La reserva se guardó, pero no se pudo encolar el email de confirmación. Revisa el worker de notificaciones.')
+      }
     } else if (estado === 'Cancelada') {
       // Cancela recordatorios pendientes (la confirmación ya enviada no se revierte).
-      await supabase.functions.invoke('notificar-reserva', {
+      const { error } = await supabase.functions.invoke('notificar-reserva', {
         body: { accion: 'cancelar', reservaId: reserva.id },
       })
+      if (error) {
+        alert('La reserva se guardó, pero no se pudo cancelar la notificación programada. Revisa el worker de notificaciones.')
+      }
     }
   }
 
